@@ -3,120 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Dashboard - หลังบ้านเอเย่นต์</title>
+    <title>Agent Dashboard - หวยลาว</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Socket.io Client -->
     <script src="/socket.io/socket.io.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Prompt', sans-serif; }</style>
 </head>
-<body class="bg-slate-900 text-gray-100 pb-24">
+<body class="bg-gray-100 min-h-screen font-sans">
 
-    <!-- Header เอเย่นต์ -->
-    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
-        <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
-            <div>
-                <h1 class="text-base font-bold text-amber-400">🛡️ หลังบ้านเอเย่นต์ (Agent)</h1>
-                <span class="text-xs text-gray-400">ระบบจัดการโพยหวยลาว Real-time</span>
-            </div>
-            <a href="member.html" target="_blank" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-xl font-medium transition">
-                เปิดหน้า Member
-            </a>
-        </div>
-    </header>
-
-    <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
-        
-        <!-- สถิติภาพรวม -->
-        <div class="grid grid-cols-2 gap-3">
-            <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 space-y-1">
-                <span class="text-xs text-gray-400 block">ยอดแทงรวมทั้งหมด</span>
-                <span id="totalRevenue" class="text-lg font-bold text-emerald-400">0.00 ฿</span>
-            </div>
-            <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700 space-y-1">
-                <span class="text-xs text-gray-400 block">จำนวนโพยทั้งหมด</span>
-                <span id="totalOrdersCount" class="text-lg font-bold text-amber-400">0 โพย</span>
+    <!-- Navbar -->
+    <nav class="bg-purple-700 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold">Lao Lottery - แดชบอร์ดตัวแทน (Agent)</h1>
+            <div class="flex items-center space-x-4">
+                <span>ผู้ดูแล: <strong id="agentUsername">Agent</strong></span>
+                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition">ออกจากระบบ</button>
             </div>
         </div>
+    </nav>
 
-        <!-- รายการโพยสดจากลูกค้า (Real-time Feed) -->
-        <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 space-y-3">
-            <h3 class="font-semibold text-sm text-gray-200 border-b border-slate-700 pb-2">📥 โพยหวยสดจากสมาชิก (Real-time)</h3>
-            <div id="liveOrdersContainer" class="space-y-3 text-xs max-h-96 overflow-y-auto">
-                <p class="text-gray-400 text-center py-8">ยังไม่มีโพยส่งเข้ามา รอรับข้อมูล...</p>
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto p-4 mt-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-lg font-semibold text-gray-800">โพยหวยที่ส่งเข้ามาแบบเรียลไทม์</h2>
+                <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">ระบบเชื่อมต่อแล้ว (Live)</span>
+            </div>
+
+            <!-- ตารางแสดงโพย -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เวลา</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สมาชิก</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่แทง</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน (₭)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">ยังไม่มีโพยหวยเข้ามาในขณะนี้...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-
-        <!-- จัดการเลขอั้น (Risk Management) -->
-        <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 space-y-3">
-            <h3 class="font-semibold text-sm text-gray-200 border-b border-slate-700 pb-2">🚫 ตั้งค่าเลขอั้น (Risk Management)</h3>
-            <div class="flex gap-2">
-                <input type="text" id="blockInput" placeholder="ระบุเลขที่ต้องการอั้น เช่น 78" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-2 text-sm text-white">
-                <button onclick="addBlockNumber()" class="bg-red-600 hover:bg-red-700 text-white px-4 rounded-xl text-xs font-bold transition">อั้นเลข</button>
-            </div>
-            <div id="blockList" class="flex flex-wrap gap-2 pt-1">
-                <span class="bg-red-900/50 text-red-300 border border-red-700 text-xs px-2.5 py-1 rounded-lg">เลข 89 (อั้น)</span>
-            </div>
-        </div>
-
     </main>
 
+    <!-- Script จัดการ Real-time Socket.io -->
     <script>
         const socket = io();
-        let totalRev = 0;
-        let orderCount = 0;
 
-        // รับข้อมูลโพยใหม่จากเซิร์ฟเวอร์แบบอัตโนมัติทันที
+        // แสดงชื่อ Agent จาก localStorage
+        const username = localStorage.getItem('username') || 'agent_boss';
+        document.getElementById('agentUsername').innerText = username;
+
+        // ดักฟังข้อมูลโพยใหม่ที่ส่งมาจากสมาชิกผ่าน Server
         socket.on('broadcast_new_order', (order) => {
-            const container = document.getElementById('liveOrdersContainer');
-
-            // ลบข้อความ "ยังไม่มีโพย" ออกเมื่อมีโพยแรกเข้ามา
-            if (container.innerHTML.includes('ยังไม่มีโพย')) {
-                container.innerHTML = '';
+            const tbody = document.getElementById('ordersTableBody');
+            
+            // ลบข้อความ "ยังไม่มีโพย" ออกในครั้งแรกที่มีข้อมูลเข้า
+            if (tbody.innerHTML.includes('ยังไม่มีโพยหวยเข้ามา')) {
+                tbody.innerHTML = '';
             }
 
-            // คำนวณยอดเงินรวมและจำนวนโพยสะสม
-            totalRev += order.net;
-            orderCount++;
+            // สร้างแถวใหม่ในตาราง
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-gray-50 transition';
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${order.time}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${order.username}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 font-bold">${order.number}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${Number(order.amount).toLocaleString()}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">รอผลรางวัล</span>
+                </td>
+            `;
 
-            document.getElementById('totalRevenue').innerText = totalRev.toLocaleString() + ' ฿';
-            document.getElementById('totalOrdersCount').innerText = orderCount + ' โพย';
-
-            // แปลงรายการสินค้าในโพยออกมาแสดงผลแบบละเอียด
-            let itemsHtml = '';
-            order.items.forEach(item => {
-                itemsHtml += `
-                    <div class="flex justify-between bg-slate-900/60 px-2.5 py-1.5 rounded-lg text-gray-300">
-                        <span>[${item.type}] เลข: <b class="text-white">${item.number}</b></span>
-                        <span class="text-amber-400">${item.amount} ฿</span>
-                    </div>
-                `;
-            });
-
-            // แทรกโพยใหม่ไว้ด้านบนสุดของรายการ
-            container.insertAdjacentHTML('afterbegin', `
-                <div class="bg-slate-700/50 p-3 rounded-xl space-y-2 border border-slate-600">
-                    <div class="flex justify-between font-bold text-amber-300 text-sm">
-                        <span>รหัสโพย: ${order.id} (${order.user})</span>
-                        <span class="text-emerald-400">สุทธิ: ${order.net.toLocaleString()} ฿</span>
-                    </div>
-                    <div class="space-y-1">
-                        ${itemsHtml}
-                    </div>
-                    <div class="text-[10px] text-gray-400 text-right pt-1">
-                        เวลาที่ส่ง: ${order.date}
-                    </div>
-                </div>
-            `);
+            // แทรกข้อมูลใหม่ไว้ด้านบนสุด
+            tbody.prepend(row);
         });
 
-        function addBlockNumber() {
-            const num = document.getElementById('blockInput').value.trim();
-            if (num) {
-                const list = document.getElementById('blockList');
-                list.innerHTML += `<span class="bg-red-900/50 text-red-300 border border-red-700 text-xs px-2.5 py-1 rounded-lg">เลข ${num} (อั้น)</span>`;
-                document.getElementById('blockInput').value = '';
-                alert(`ตั้งค่าอั้นเลข ${num} เรียบร้อย`);
-            }
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
         }
     </script>
 </body>
