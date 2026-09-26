@@ -10,9 +10,9 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'client')));
 
-// ตั้งค่าให้เปิดหน้า login.html เป็นหน้าแรกเมื่อเข้าเว็บ
+// ตั้งค่าให้เปิด index.html เป็นหน้าแรกเมื่อเข้าเว็บไซต์
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'login.html'));
+    res.sendFile(path.join(__dirname, 'client', 'index.html'));
 });
 
 // API Login สำหรับตรวจสอบสิทธิ์
