@@ -10,12 +10,16 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'client')));
 
-// ตั้งค่าให้เปิด index.html เป็นหน้าแรกเมื่อเข้าเว็บไซต์
+// เก็บข้อมูลโพยหวยและผลรางวัลในหน่วยความจำชั่วคราว
+let allOrders = [];
+let latestResult = { threeTop: '---', twoBottom: '--' };
+
+// หน้าแรก
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'client', 'index.html'));
 });
 
-// API Login สำหรับตรวจสอบสิทธิ์
+// API Login
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     if (username === 'member01' && password === '123456') {
@@ -27,12 +31,38 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-// Socket.io Real-time สำหรับส่งโพย
+// Socket.io จัดการโพยและการออกรางวัล
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
+    // ส่งประวัติโพยเดิมและผลรางวัลล่าสุดให้ผู้ใช้ใหม่ที่เพิ่งเชื่อมต่อ
+    socket.emit('init_data', { orders: allOrders, result: latestResult });
+
+    // รับโพยจากสมาชิก
     socket.on('submit_bet', (orderData) => {
+        orderData.id = Date.now();
+        orderData.status = 'รอผลรางวัล';
+        allOrders.unshift(orderData); // เก็บไว้ด้านบนสุด
+
+        // Broadcast ให้ Agent และทุกคนเห็นโพยสดๆ
         io.emit('broadcast_new_order', orderData);
+    });
+
+    // แอดมิน/เอเยนต์กดออกผลรางวัล
+    socket.on('publish_result', (resultData) => {
+        latestResult = resultData;
+
+        // วนลูปตรวจโพยว่าใครถูกรางวัลบ้าง (ตัวอย่างเทียบเลข 2 ตัวท้าย)
+        allOrders.forEach(order => {
+            if (order.number.slice(-2) === resultData.twoBottom) {
+                order.status = 'ถูกรางวัล 🎉';
+            } else {
+                order.status = 'ไม่ถูกรางวัล ❌';
+            }
+        });
+
+        // ส่งผลรางวัลและสถานะอัปเดตไปให้ทุกคน
+        io.emit('update_result_and_orders', { result: latestResult, orders: allOrders });
     });
 
     socket.on('disconnect', () => {
