@@ -2,67 +2,85 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>ระบบบริหารจัดการเอเยนต์ & เจ้ามือ - Control Center</title>
+    <title>ระบบเอเยนต์ (Agent Dashboard Only)</title>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { font-family: 'Prompt', sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        body { font-family: 'Prompt', sans-serif; background: #121212; color: #fff; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .card { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        input, select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; }
-        button { background: #10b981; color: white; border: none; font-weight: bold; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; }
+        input, select { width: 100%; padding: 10px; background: #2c2c2c; border: 1px solid #444; color: #fff; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; }
+        button { background: #00e676; color: #000; font-weight: bold; padding: 10px; border: none; border-radius: 6px; cursor: pointer; width: 100%; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>⚙️ แดชบอร์ดเอเยนต์ & ควบคุมความเสี่ยงเจ้ามือ</h2>
+        <h2>🛠️ เมนูเอเยนต์ (จัดการเมมเบอร์ & เครดิต & เลขอั้น)</h2>
 
         <div class="grid-2">
-            <!-- ประกาศผลรางวัล Multi-Lottery -->
+            <!-- เปิดบัญชี & เติมเครดิต -->
             <div class="card">
-                <h3>📢 ประกาศผลรางวัลประจำรอบ</h3>
-                <label>เลือกประเภทหวย:</label>
-                <select id="agentLotterySelect">
-                    <option value="หวยลาวพรีเมียม">หวยลาวพรีเมียม</option>
-                    <option value="ฮานอย VIP">ฮานอย VIP</option>
-                    <option value="ยี่กี รอบที่ 1">ยี่กี รอบที่ 1</option>
-                </select>
-                <label>3 ตัวบน:</label>
-                <input type="text" id="topRes" placeholder="789">
-                <label>2 ตัวล่าง:</label>
-                <input type="text" id="botRes" placeholder="45">
-                <button onclick="publishResult()">ออกผลรางวัลและตรวจโพยทันที</button>
+                <h3>👤 สร้างบัญชีเมมเบอร์ / เติมเครดิต</h3>
+                <label>ชื่อเมมเบอร์:</label>
+                <input type="text" id="targetUser" placeholder="เช่น user01">
+                <label>รหัสผ่าน:</label>
+                <input type="password" id="targetPass" placeholder="******">
+                <label>จำนวนเครดิตเริ่มต้น:</label>
+                <input type="number" id="creditAmt" placeholder="1000">
+
+                <button onclick="createMember()">เปิดบัญชีเมมเบอร์ใหม่</button>
+                <button onclick="topupCredit()" style="background: #29b6f6; margin-top: 8px;">เติมเครดิตเข้ากระเป๋า</button>
             </div>
 
-            <!-- ระบบจัดการอั้น & วงเงินคุมเสี่ยง -->
+            <!-- ตั้งค่าเลขอั้น -->
             <div class="card">
-                <h3>🛡️ จำกัดวงเงินเสี่ยงสูงสุด (Max Risk Limit)</h3>
-                <p style="font-size: 13px; color: #94a3b8;">ระบบจะปรับเลขนั้นเป็น "เลขอั้นออโต้" ทันทีเมื่อมียอดแทงรวมเกินวงเงินที่กำหนดไว้</p>
-                <label>วงเงินอั้นต่อตัวเลข (บาท):</label>
-                <input type="number" id="limitPerNum" value="10000">
-                <button style="background: #eab308; color: #000;" onclick="alert('บันทึกวงเงินสุ่มเสี่ยงเรียบร้อย')">อัปเดตลิมิตเสี่ยง</button>
+                <h3>🚫 ตั้งค่าระบบเลขอั้น (ไม่ขาย / จ่ายไม่เต็ม)</h3>
+                <label>ตัวเลขที่ต้องการตั้งค่า:</label>
+                <input type="text" id="blockNum" placeholder="เช่น 123">
+                <label>สถานะการอั้น:</label>
+                <select id="blockType">
+                    <option value="CLOSED">ไม่ขายเลย (ปิดรับแทง)</option>
+                    <option value="HALF">จ่ายไม่เต็มจำนวน (จ่ายครึ่งราคา)</option>
+                </select>
+
+                <button onclick="setBlockedNumber()" style="background: #ff5252; color: #fff;">บันทึกเลขอั้น</button>
             </div>
         </div>
     </div>
 
     <script>
         const socket = io();
+        let agentName = "admin_agent";
 
-        function publishResult() {
-            const lType = document.getElementById('agentLotterySelect').value;
-            const top = document.getElementById('topRes').value;
-            const bot = document.getElementById('botRes').value;
-
-            if (!top || !bot) return alert('กรุณาระบุเลขรางวัล');
-
-            socket.emit('publish_lottery_result', {
-                lotteryType: lType,
-                threeTop: top,
-                twoBottom: bot
+        function createMember() {
+            socket.emit('agent_action', {
+                agentUsername: agentName,
+                actionType: 'CREATE_MEMBER',
+                targetUser: document.getElementById('targetUser').value,
+                password: document.getElementById('targetPass').value,
+                amount: parseFloat(document.getElementById('creditAmt').value) || 0
             });
-            alert(`ประกาศผล ${lType} สำเร็จ! ระบบกำลังคำนวณเงินรางวัลให้สมาชิก`);
         }
+
+        function topupCredit() {
+            socket.emit('agent_action', {
+                agentUsername: agentName,
+                actionType: 'TOPUP_CREDIT',
+                targetUser: document.getElementById('targetUser').value,
+                amount: parseFloat(document.getElementById('creditAmt').value) || 0
+            });
+        }
+
+        function setBlockedNumber() {
+            socket.emit('set_blocked_number', {
+                number: document.getElementById('blockNum').value,
+                type: document.getElementById('blockType').value
+            });
+        }
+
+        socket.on('agent_success', msg => alert('✅ ' + msg));
+        socket.on('agent_error', err => alert('❌ ' + err));
     </script>
 </body>
 </html>

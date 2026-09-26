@@ -2,210 +2,232 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
+const multer = require('multer');
+const { createWorker } = require('tesseract.js'); // สำหรับอ่านโพยจากรูปภาพ
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+const upload = multer({ dest: 'uploads/' });
+
 app.use(express.json());
 app.use(express.static('client'));
 
-// Database Connection
-mongoose.connect('mongodb://localhost:27017/laolottery_pro', {
+// เชื่อมต่อ MongoDB
+mongoose.connect('mongodb://localhost:27017/lottery_full_system', {
     useNewUrlParser: true,
     useUnifiedTopology: true
-}).then(() => console.log('🔥 MongoDB Connected - Full Enterprise Engine')).catch(() => console.log('⚠️ Running in-memory fallback'));
+}).then(() => console.log('🔥 MongoDB System Connected')).catch(err => console.log('⚠️ Running in local mode'));
 
-// ==================== SCHEMAS ====================
+// Database Schemas
 const userSchema = new mongoose.Schema({
     username: { type: String, unique: true },
+    password: String,
     credit: { type: Number, default: 0 },
-    role: { type: String, default: 'member' },
-    refCode: { type: String, unique: true },
-    referredBy: { type: String, default: null },
-    affiliateEarnings: { type: Number, default: 0 },
-    vipLevel: { type: String, default: 'Bronze' },
-    totalTurnover: { type: Number, default: 0 }
+    role: { type: String, default: 'member' }, // 'agent' หรือ 'member'
+    discountRate: { type: Number, default: 0.10 } // ส่วนลดเมมเบอร์ 10%
 });
 const User = mongoose.model('User', userSchema);
 
+const blockedSchema = new mongoose.Schema({
+    number: String,
+    type: String // 'CLOSED' (ไม่ขายเลย) หรือ 'HALF' (จ่ายไม่เต็ม/จ่ายครึ่ง)
+});
+const BlockedNumber = mongoose.model('BlockedNumber', blockedSchema);
+
 const orderSchema = new mongoose.Schema({
     username: String,
-    lotteryType: String, // หวยลาว, ฮานอย, ยี่กี
-    type: String,        // 3ตัวบน, 2ตัวล่าง, 19ประตู, 6กลับ
-    number: String,
-    amount: Number,
-    discount: Number,
-    netPay: Number,
-    winStatus: { type: String, default: 'รอผลรางวัล' },
-    payout: { type: Number, default: 0 },
+    bets: Array,           // รายการแทงทั้งหมด
+    totalAmount: Number,   // ยอดรวมก่อนหักส่วนลด
+    discount: Number,      // ส่วนลด
+    netPay: Number,        // ยอดสุทธิหลังหักส่วนลด
+    totalWin: { type: Number, default: 0 }, // ยอดที่ได้รางวัล
+    profitCalculated: { type: Number, default: 0 }, // ยอดได้-เสียสุทธิ
+    status: { type: String, default: 'รอผลรางวัล' },
     createdAt: { type: Date, default: Date.now }
 });
 const Order = mongoose.model('Order', orderSchema);
 
-const configSchema = new mongoose.Schema({
-    maxBetPerNumber: { type: Number, default: 10000 }, // ระบบอั้นอัตโนมัติเมื่อยอดรวมเกิน
-    blockedNumbers: [String],                           // เลขปิดรับ
-    lineNotifyToken: { type: String, default: '' }
-});
-const Config = mongoose.model('Config', configSchema);
-
 // ==================== HELPER FUNCTIONS ====================
-// 1. Text-to-Bet Parser (อ่านข้อความโพยด่วน)
-function parseTextToBets(text) {
-    // ตัวอย่างข้อความ: "123x100x100 45x50 19ประตู 7 x20"
-    const lines = text.split('\n');
-    const parsedBets = [];
-    
-    lines.forEach(line => {
-        const match3 = line.match(/(\d{3})x(\d+)(?:x(\d+))?/i);
-        if (match3) {
-            parsedBets.push({ type: '3ตัวบน', number: match3[1], amount: parseFloat(match3[2]) });
-            if (match3[3]) parsedBets.push({ type: '3ตัวโต๊ด', number: match3[1], amount: parseFloat(match3[3]) });
-            return;
-        }
-        const match2 = line.match(/(\d{2})x(\d+)/i);
-        if (match2) {
-            parsedBets.push({ type: '2ตัวบน', number: match2[1], amount: parseFloat(match2[2]) });
-        }
-    });
-    return parsedBets;
-}
 
-// 2. Expand Number Systems (19 ประตู / 6 กลับ / 3 กลับ)
+// 1. คำนวณกระจายเลข (19ประตู, 6กลับ, 3กลับ)
 function expandBetNumbers(type, number) {
     let result = [];
+    let cleanNum = number.toString().trim();
+
     if (type === '19ประตู') {
-        let digit = number.toString().trim();
         for (let i = 0; i <= 9; i++) {
-            result.push(`${digit}${i}`);
-            if (digit !== i.toString()) result.push(`${i}${digit}`);
+            result.push(`${cleanNum}${i}`);
+            if (cleanNum !== i.toString()) result.push(`${i}${cleanNum}`);
         }
-    } else if (type === '6กลับ' && number.length === 3) {
-        let n = number.split('');
+    } else if (type === '6กลับ' && cleanNum.length === 3) {
+        let n = cleanNum.split('');
         let perms = [
             n[0]+n[1]+n[2], n[0]+n[2]+n[1],
             n[1]+n[0]+n[2], n[1]+n[2]+n[0],
             n[2]+n[0]+n[1], n[2]+n[1]+n[0]
         ];
         result = [...new Set(perms)];
+    } else if (type === '3กลับ' && cleanNum.length === 3) {
+        let n = cleanNum.split('');
+        let perms = [n[0]+n[1]+n[2], n[1]+n[0]+n[2], n[2]+n[1]+n[0]];
+        result = [...new Set(perms)];
     } else {
-        result.push(number);
+        result.push(cleanNum);
     }
     return result;
 }
 
-// ==================== REAL-TIME ENGINE ====================
-let currentResults = {
-    'หวยลาวพรีเมียม': { threeTop: '789', twoBottom: '45' },
-    'ฮานอย VIP': { threeTop: '123', twoBottom: '88' },
-    'ยี่กี รอบที่ 1': { threeTop: '999', twoBottom: '00' }
-};
+// 2. แปลงข้อความรูปแบบ 6x5 หรือ 3x5
+function parseQuickBetFormat(text) {
+    // รองรับรูปแบบเช่น "123 6x5", "45 3x5", "789x100"
+    const lines = text.split('\n');
+    let parsedBets = [];
 
+    lines.forEach(line => {
+        let matchMultiplier = line.match(/(\d+)\s+(\d+)x(\d+)/i); // เช่น 123 6x5
+        if (matchMultiplier) {
+            let num = matchMultiplier[1];
+            let typeCode = matchMultiplier[2];
+            let price = parseFloat(matchMultiplier[3]);
+            let betType = typeCode === '6' ? '6กลับ' : (typeCode === '3' ? '3กลับ' : '3ตัวบน');
+            parsedBets.push({ type: betType, number: num, amount: price });
+            return;
+        }
+
+        let matchSimple = line.match(/(\d+)[xX](\d+)/i); // เช่น 45x10
+        if (matchSimple) {
+            parsedBets.push({
+                type: matchSimple[1].length === 3 ? '3ตัวบน' : '2ตัวบน',
+                number: matchSimple[1],
+                amount: parseFloat(matchSimple[2])
+            });
+        }
+    });
+    return parsedBets;
+}
+
+// API สำหรับอ่านโพยจากรูปภาพ (OCR Engine)
+app.post('/api/ocr-scan', upload.single('slipImage'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'ไม่พบไฟล์รูปภาพ' });
+        const worker = await createWorker('tha+eng');
+        const ret = await worker.recognize(req.file.path);
+        await worker.terminate();
+
+        const extractedText = ret.data.text;
+        const bets = parseQuickBetFormat(extractedText);
+        res.json({ success: true, rawText: extractedText, parsedBets: bets });
+    } catch (err) {
+        res.status(500).json({ error: 'ไม่สามารถอ่านข้อความจากรูปภาพได้' });
+    }
+});
+
+// ==================== SOCKET.IO REALTIME ====================
 io.on('connection', (socket) => {
-    // ส่งข้อมูลตั้งต้นเมื่อเชื่อมต่อ
-    socket.on('request_init', async () => {
+    
+    // โหลดข้อมูลเริ่มต้น
+    socket.on('get_initial_data', async () => {
+        const blocked = await BlockedNumber.find().catch(() => []);
         const orders = await Order.find().sort({ _id: -1 }).limit(50).catch(() => []);
-        const users = await User.find().catch(() => []);
-        socket.emit('init_data', { results: currentResults, orders, users });
+        socket.emit('init_data', { blocked, orders });
     });
 
-    // แทงโพย (รองรับอั้นออโต้ + ค่าคอมมิชชั่นแนะนำเพื่อน + ส่วนลด VIP)
-    socket.on('submit_bets', async (data) => {
-        // data = { username, lotteryType, bets: [{type, number, amount}] }
+    // สมาชิกส่งโพยหวย (คำนวณส่วนลด + เช็คเลขอั้น)
+    socket.on('submit_order', async (data) => {
+        // data = { username, rawBets }
         const user = await User.findOne({ username: data.username });
-        if (!user) return socket.emit('error_msg', 'ไม่พบผู้ใช้งาน');
+        if (!user) return socket.emit('order_error', 'ไม่พบชื่อผู้ใช้งาน');
 
-        let totalNet = 0;
-        let processedOrders = [];
+        const blockedList = await BlockedNumber.find();
+        let expandedBets = [];
+        let grossTotal = 0;
 
-        for (let b of data.bets) {
-            let expandedNums = expandBetNumbers(b.type, b.number);
-            for (let num of expandedNums) {
-                // ตรวจสอบวงเงินเสี่ยงรวม (Max Bet Limit per Number)
-                const existingSum = await Order.aggregate([
-                    { $match: { lotteryType: data.lotteryType, number: num } },
-                    { $group: { _id: null, total: { $sum: "$amount" } } }
-                ]);
-                let currentTotal = existingSum[0] ? existingSum[0].total : 0;
-                if (currentTotal + b.amount > 10000) {
-                    socket.emit('error_msg', `เลข ${num} มียอดแทงเต็มจำนวนแล้ว (เลขอั้นออโต้)`);
-                    continue;
-                }
-
-                let discountRate = user.vipLevel === 'Gold' ? 0.12 : 0.10;
-                let netPay = b.amount * (1 - discountRate);
-
-                if (user.credit < netPay) {
-                    socket.emit('error_msg', 'เครดิตไม่พอสำหรับทำรายการ');
+        for (let b of data.rawBets) {
+            let nums = expandBetNumbers(b.type, b.number);
+            for (let n of nums) {
+                // เช็คเลขอั้น
+                let isClosed = blockedList.find(x => x.number === n && x.type === 'CLOSED');
+                if (isClosed) {
+                    socket.emit('order_error', `เลข ${n} ปิดรับแทง (เลขอั้น)`);
                     return;
                 }
 
-                user.credit -= netPay;
-                user.totalTurnover += b.amount;
-                totalNet += netPay;
+                let isHalf = blockedList.find(x => x.number === n && x.type === 'HALF');
+                let effectivePayoutRate = isHalf ? 0.5 : 1.0; // จ่ายไม่เต็มจำนวน
 
-                // คำนวณส่วนแบ่งแนะนำเพื่อน (Affiliate 8%)
-                if (user.referredBy) {
-                    let comm = netPay * 0.08;
-                    await User.updateOne({ refCode: user.referredBy }, { $inc: { affiliateEarnings: comm, credit: comm } });
-                }
-
-                const newOrder = new Order({
-                    username: user.username,
-                    lotteryType: data.lotteryType,
+                expandedBets.push({
                     type: b.type,
-                    number: num,
+                    number: n,
                     amount: b.amount,
-                    discount: b.amount * discountRate,
-                    netPay: netPay
+                    payoutRate: effectivePayoutRate,
+                    note: isHalf ? 'จ่ายครึ่งราคา' : 'ปกติ'
                 });
-                await newOrder.save();
-                processedOrders.push(newOrder);
+
+                grossTotal += b.amount;
             }
         }
 
+        let discountAmt = grossTotal * (user.discountRate || 0.10);
+        let netPay = grossTotal - discountAmt;
+
+        if (user.credit < netPay) {
+            return socket.emit('order_error', 'เครดิตไม่พอสำหรับส่งโพยนี้');
+        }
+
+        // ตัดเครดิตกระเป๋า
+        user.credit -= netPay;
         await user.save();
-        io.emit('orders_updated', await Order.find().sort({ _id: -1 }).limit(50));
-        socket.emit('bet_success', { remainingCredit: user.credit, totalPaid: totalNet });
+
+        const newOrder = new Order({
+            username: user.username,
+            bets: expandedBets,
+            totalAmount: grossTotal,
+            discount: discountAmt,
+            netPay: netPay
+        });
+        await newOrder.save();
+
+        socket.emit('order_success', {
+            order: newOrder,
+            newCredit: user.credit
+        });
+        io.emit('new_order_added', newOrder);
     });
 
-    // ระบบฝากเงินออโต้ สแกนสลิป (Mock Verification)
-    socket.on('process_deposit_slip', async (data) => {
-        // data = { username, slipData }
-        let amount = Math.floor(Math.random() * 900) + 100; // จำลองยอดเงินสลิป
-        await User.updateOne({ username: data.username }, { $inc: { credit: amount } });
-        const updatedUser = await User.findOne({ username: data.username });
-        socket.emit('deposit_success', { addedCredit: amount, newCredit: updatedUser.credit });
-    });
+    // เอเยนต์เท่านั้น: เปิดบัญชีเมมเบอร์ & เติมเครดิต
+    socket.on('agent_action', async (actionData) => {
+        // actionData = { agentUsername, actionType, targetUser, amount, password }
+        const agent = await User.findOne({ username: actionData.agentUsername, role: 'agent' });
+        if (!agent) return socket.emit('agent_error', 'สิทธิ์ไม่ถูกต้อง (เอเยนต์เท่านั้น)');
 
-    // ประกาศผลรางวัล + เคลียร์ยอดได้เสีย
-    socket.on('publish_lottery_result', async (data) => {
-        // data = { lotteryType, threeTop, twoBottom }
-        currentResults[data.lotteryType] = { threeTop: data.threeTop, twoBottom: data.twoBottom };
-        
-        const pendingOrders = await Order.find({ lotteryType: data.lotteryType, winStatus: 'รอผลรางวัล' });
-        for (let ord of pendingOrders) {
-            let isWin = false;
-            let winMultiplier = ord.type.includes('3') ? 900 : 95;
-            
-            if (data.threeTop.endsWith(ord.number) || data.twoBottom === ord.number) {
-                isWin = true;
-            }
-
-            if (isWin) {
-                ord.winStatus = 'ถูกรางวัล 🎉';
-                ord.payout = ord.amount * winMultiplier;
-                await User.updateOne({ username: ord.username }, { $inc: { credit: ord.payout } });
-            } else {
-                ord.winStatus = 'ไม่ถูกรางวัล ❌';
-            }
-            await ord.save();
+        if (actionData.actionType === 'CREATE_MEMBER') {
+            const newUser = new User({
+                username: actionData.targetUser,
+                password: actionData.password,
+                credit: actionData.amount || 0,
+                role: 'member'
+            });
+            await newUser.save();
+            socket.emit('agent_success', `สร้างบัญชีสมาชิก ${actionData.targetUser} เรียบร้อย`);
+        } else if (actionData.actionType === 'TOPUP_CREDIT') {
+            await User.updateOne({ username: actionData.targetUser }, { $inc: { credit: actionData.amount } });
+            socket.emit('agent_success', `เติมเครดิต ${actionData.amount} ให้ ${actionData.targetUser} สำเร็จ`);
         }
+    });
 
-        io.emit('results_updated', { results: currentResults, orders: await Order.find().sort({ _id: -1 }).limit(50) });
+    // เอเยนต์: ตั้งค่าเลขอั้น (ไม่ขาย / จ่ายไม่เต็ม)
+    socket.on('set_blocked_number', async (blockData) => {
+        // blockData = { number, type: 'CLOSED' | 'HALF' }
+        await BlockedNumber.updateOne(
+            { number: blockData.number },
+            { type: blockData.type },
+            { upsert: true }
+        );
+        io.emit('blocked_updated', await BlockedNumber.find());
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 Lao Lottery Pro System active on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Lottery System Engine live on port ${PORT}`));
