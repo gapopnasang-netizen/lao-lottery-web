@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบ - หวยลาว</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-indigo-500 to-purple-600 min-h-screen flex items-center justify-center font-sans">
+
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Lao Lottery Enterprise</h1>
+            <p class="text-sm text-gray-500 mt-1">กรุณาเข้าสู่ระบบเพื่อใช้งาน</p>
+        </div>
+
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้งาน (Username)</label>
+                <input type="text" id="username" required placeholder="member01 หรือ agent_boss"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน (Password)</label>
+                <input type="password" id="password" required placeholder="••••••"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <div id="errorMessage" class="text-red-500 text-sm text-center hidden"></div>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition duration-200 shadow-md">
+                เข้าสู่ระบบ
+            </button>
+        </form>
+
+        <div class="mt-6 text-center text-xs text-gray-400 border-t pt-4">
+            <p>ทดลองระบบสมาชิก: <code class="bg-gray-100 px-1 py-0.5 rounded text-gray-600">member01 / 123456</code></p>
+            <p class="mt-1">ทดลองระบบเอเยนต์: <code class="bg-gray-100 px-1 py-0.5 rounded text-gray-600">agent_boss / 123456</code></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorDiv = document.getElementById('errorMessage');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('role', data.role);
+                    localStorage.setItem('credit', data.credit || 0);
+
+                    // แยกหน้าตามสิทธิ์ผู้ใช้งาน
+                    if (data.role === 'member') {
+                        window.location.href = 'member.html';
+                    } else if (data.role === 'agent') {
+                        window.location.href = 'agent.html';
+                    }
+                } else {
+                    errorDiv.innerText = data.message || 'เข้าสู่ระบบไม่สำเร็จ';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error(err);
+                errorDiv.innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์';
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
