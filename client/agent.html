@@ -2,124 +2,66 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>ระบบเอเยนต์ - จัดการเครดิตและเลขอั้น</title>
+    <title>ระบบบริหารจัดการเอเยนต์ & เจ้ามือ - Control Center</title>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { font-family: 'Prompt', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; }
-        .header, .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 8px; box-sizing: border-box; }
-        button { background: #10b981; color: white; font-weight: 700; border: none; padding: 12px; width: 100%; border-radius: 8px; cursor: pointer; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
-        th { color: #34d399; }
+        body { font-family: 'Prompt', sans-serif; background: #0f172a; color: #fff; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        input, select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; }
+        button { background: #10b981; color: white; border: none; font-weight: bold; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>🛠️ Agent Dashboard (ระบบจัดการเอเยนต์)</h2>
-            <a href="index.html" style="color: #34d399; text-decoration: none;">← กลับหน้าแรก</a>
-        </div>
+        <h2>⚙️ แดชบอร์ดเอเยนต์ & ควบคุมความเสี่ยงเจ้ามือ</h2>
 
-        <div class="grid">
-            <div class="box">
-                <h3>📢 ออกผลรางวัล & ตรวจโพยอัตโนมัติ</h3>
-                <form id="resultForm">
-                    <label>เลข 3 ตัวบน:</label>
-                    <input type="text" id="threeTop" placeholder="789" required>
-                    <label>เลข 2 ตัวล่าง:</label>
-                    <input type="text" id="twoBottom" placeholder="45" required>
-                    <button type="submit">ประกาศผลรางวัล</button>
-                </form>
+        <div class="grid-2">
+            <!-- ประกาศผลรางวัล Multi-Lottery -->
+            <div class="card">
+                <h3>📢 ประกาศผลรางวัลประจำรอบ</h3>
+                <label>เลือกประเภทหวย:</label>
+                <select id="agentLotterySelect">
+                    <option value="หวยลาวพรีเมียม">หวยลาวพรีเมียม</option>
+                    <option value="ฮานอย VIP">ฮานอย VIP</option>
+                    <option value="ยี่กี รอบที่ 1">ยี่กี รอบที่ 1</option>
+                </select>
+                <label>3 ตัวบน:</label>
+                <input type="text" id="topRes" placeholder="789">
+                <label>2 ตัวล่าง:</label>
+                <input type="text" id="botRes" placeholder="45">
+                <button onclick="publishResult()">ออกผลรางวัลและตรวจโพยทันที</button>
             </div>
 
-            <div class="box">
-                <h3>💳 เติมเครดิตให้สมาชิก</h3>
-                <form id="creditForm">
-                    <label>ชื่อสมาชิก:</label>
-                    <input type="text" id="targetUser" value="สมชาย ใจดี" required>
-                    <label>จำนวนเครดิตที่ต้องการเติม (+/-):</label>
-                    <input type="number" id="creditAmount" placeholder="500" required>
-                    <button type="submit" style="background: #38bdf8; color: #0f172a;">ยืนยันการเติมเครดิต</button>
-                </form>
+            <!-- ระบบจัดการอั้น & วงเงินคุมเสี่ยง -->
+            <div class="card">
+                <h3>🛡️ จำกัดวงเงินเสี่ยงสูงสุด (Max Risk Limit)</h3>
+                <p style="font-size: 13px; color: #94a3b8;">ระบบจะปรับเลขนั้นเป็น "เลขอั้นออโต้" ทันทีเมื่อมียอดแทงรวมเกินวงเงินที่กำหนดไว้</p>
+                <label>วงเงินอั้นต่อตัวเลข (บาท):</label>
+                <input type="number" id="limitPerNum" value="10000">
+                <button style="background: #eab308; color: #000;" onclick="alert('บันทึกวงเงินสุ่มเสี่ยงเรียบร้อย')">อัปเดตลิมิตเสี่ยง</button>
             </div>
-        </div>
-
-        <div class="box">
-            <h3>🚫 จัดการเลขอั้น (ไม่รับแทง / จ่ายครึ่ง)</h3>
-            <p style="color: #94a3b8; font-size: 13px;">ระบบจะทำการตัดเลขเหล่านี้ออกทันทีเมื่อสมาชิกส่งโพยเข้ามา</p>
-            <input type="text" id="blockedInput" placeholder="ระบุเลขที่ต้องการอั้น เช่น 123" style="width: 70%; display: inline-block;">
-            <button onclick="alert('บันทึกเลขอั้นเรียบร้อย')" style="width: 25%; display: inline-block; background: #ef4444;">เพิ่มเลขอั้น</button>
-        </div>
-
-        <div class="box" style="margin-top: 20px;">
-            <h3>📊 รายการโพยทั้งหมดในระบบ</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>สมาชิก</th>
-                        <th>ประเภท</th>
-                        <th>เลข</th>
-                        <th>สุทธิ</th>
-                        <th>เวลา</th>
-                        <th>สถานะ</th>
-                    </tr>
-                </thead>
-                <tbody id="agentOrderTable"></tbody>
-            </table>
         </div>
     </div>
 
     <script>
         const socket = io();
 
-        socket.on('init_data', (data) => {
-            document.getElementById('threeTop').value = data.result.threeTop;
-            document.getElementById('twoBottom').value = data.result.twoBottom;
-            updateAgentTable(data.orders);
-        });
+        function publishResult() {
+            const lType = document.getElementById('agentLotterySelect').value;
+            const top = document.getElementById('topRes').value;
+            const bot = document.getElementById('botRes').value;
 
-        socket.on('update_result_and_orders', (data) => {
-            updateAgentTable(data.orders);
-        });
+            if (!top || !bot) return alert('กรุณาระบุเลขรางวัล');
 
-        document.getElementById('resultForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            socket.emit('publish_result', {
-                threeTop: document.getElementById('threeTop').value,
-                twoBottom: document.getElementById('twoBottom').value
+            socket.emit('publish_lottery_result', {
+                lotteryType: lType,
+                threeTop: top,
+                twoBottom: bot
             });
-            alert('ประกาศผลและคำนวณถูก-ผิดสำเร็จ!');
-        });
-
-        document.getElementById('creditForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            socket.emit('manage_user', {
-                action: 'add_credit',
-                username: document.getElementById('targetUser').value,
-                amount: parseFloat(document.getElementById('creditAmount').value)
-            });
-            alert('เติมเครดิตสำเร็จ!');
-        });
-
-        function updateAgentTable(orders) {
-            const tbody = document.getElementById('agentOrderTable');
-            tbody.innerHTML = '';
-            orders.forEach(ord => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${ord.username}</td>
-                    <td>${ord.type}</td>
-                    <td><b>${ord.number}</b></td>
-                    <td>${ord.netPay} ฿</td>
-                    <td>${ord.time}</td>
-                    <td style="color: ${ord.status.includes('ถูก') ? '#10b981' : '#f87171'}">${ord.status}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+            alert(`ประกาศผล ${lType} สำเร็จ! ระบบกำลังคำนวณเงินรางวัลให้สมาชิก`);
         }
     </script>
 </body>
