@@ -2,284 +2,152 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Member Dashboard - หวยลาว Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>หน้าสมาชิก - ระบบหวยพรีเมียม</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: 'Prompt', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .header, .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 8px; box-sizing: border-box; }
+        button { background: #38bdf8; color: #0f172a; font-weight: 700; border: none; padding: 12px; width: 100%; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
+        th { color: #38bdf8; }
+        .wallet-card { background: linear-gradient(135deg, #0284c7, #0369a1); padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans">
-    <nav class="bg-indigo-600 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold">Lao Lottery - สมาชิก</h1>
-            <div class="flex items-center space-x-4">
-                <span>ยินดีต้อนรับ, <strong id="usernameDisplay">สมาชิก</strong></span>
-                <span class="bg-indigo-700 px-3 py-1 rounded-full text-sm">เครดิตกระเป๋า: <span id="creditDisplay">5,000</span> ₭</span>
-                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition">ออกจากระบบ</button>
-            </div>
-        </div>
-    </nav>
-
-    <main class="max-w-4xl mx-auto p-4 mt-6 space-y-6">
-        <!-- ผลรางวัลล่าสุด -->
-        <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg shadow-md p-6 text-center">
-            <h2 class="text-lg font-semibold mb-2">ผลรางวัลหวยลาวงวดล่าสุด</h2>
-            <div class="flex justify-center space-x-8 mt-4">
-                <div>
-                    <p class="text-xs text-purple-200">3 ตัวบน</p>
-                    <p id="resThree" class="text-3xl font-bold">---</p>
-                </div>
-                <div>
-                    <p class="text-xs text-purple-200">2 ตัวล่าง</p>
-                    <p id="resTwo" class="text-3xl font-bold">--</p>
-                </div>
-            </div>
+<body>
+    <div class="container">
+        <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>👤 สมาชิก: สมชาย ใจดี</h2>
+            <a href="index.html" style="color: #38bdf8; text-decoration: none;">← กลับหน้าแรก</a>
         </div>
 
-        <!-- เชื่อมกระเป๋าเงิน / เติมเงินออโต้ QR Payment -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">💳 กระเป๋าเงินอัจฉริยะ & เติมเครดิตออโต้</h2>
-            <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div class="space-y-2 text-sm text-gray-600">
-                    <p>• ฝาก-ถอน รวดเร็วผ่านระบบอัตโนมัติ 24 ชม.</p>
-                    <p>• รองรับการสแกน QR Code พร้อมเพย์และธนาคารลาว</p>
-                </div>
-                <button onclick="openWalletModal()" class="bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-2.5 rounded-lg shadow transition">
-                    เติมเงินเข้ากระเป๋า
-                </button>
+        <!-- กระเป๋าเงิน / เครดิต -->
+        <div class="wallet-card">
+            <div>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9;">เครดิตคงเหลือในกระเป๋า</p>
+                <h2 id="userCredit" style="margin: 5px 0 0 0;">1,500.00 ฿</h2>
             </div>
+            <button onclick="alert('กรุณาติดต่อเอเยนต์เพื่อเติมเครดิต')" style="width: auto; background: #f8fafc; color: #0f172a; padding: 8px 16px;">💳 เติมเงิน/กระเป๋า</button>
         </div>
 
-        <!-- ฟอร์มแทงหวย & อ่านโพยจากรูปภาพ (OCR) -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">🎯 ส่งโพยหวยลาว (รูปแบบพิเศษ & สแกนรูป)</h2>
-            
-            <!-- แท็บเลือกโหมด: พิมพ์เอง vs อัปโหลดรูป -->
-            <div class="flex space-x-4 mb-4 border-b pb-2">
-                <button onclick="switchTab('manual')" id="btnManual" class="text-indigo-600 font-bold border-b-2 border-indigo-600 pb-1">พิมพ์โพยเอง</button>
-                <button onclick="switchTab('ocr')" id="btnOcr" class="text-gray-500 font-semibold pb-1">📷 อัปโหลดรูปโพย (OCR)</button>
-            </div>
-
-            <!-- โหมดพิมพ์เอง -->
-            <form id="betForm" class="space-y-4">
-                <div id="manualSection" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">รูปแบบการแทง</label>
-                            <select id="betType" class="w-full px-3 py-2 border rounded-md">
-                                <option value="normal">แทงทั่วไป / เลขตรง</option>
-                                <option value="3_back">3 กลับ (สลับตำแหน่ง 3 ตัว)</option>
-                                <option value="6_back">6 กลับ (สลับตำแหน่ง 3 ตัวทุกแบบ)</option>
-                                <option value="19_gate">19 ประตู (วิ่ง/รูดหน้า-หลัง)</option>
-                                <option value="6x5">6x5 (ชุดคูณพิเศษ)</option>
-                                <option value="3x5">3x5 (ชุดคูณพิเศษ)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">เลขที่แทง</label>
-                            <input type="text" id="betNumber" placeholder="เช่น 123 หรือ 45" class="w-full px-3 py-2 border rounded-md">
-                        </div>
+        <div class="grid">
+            <div class="box">
+                <h3>🎟️ ส่งโพยหวย (คำนวณส่วนลด & เลขชุดอัตโนมัติ)</h3>
+                <form id="betForm">
+                    <label>ประเภท:</label>
+                    <select id="betType">
+                        <option value="3ตัวบน">3 ตัวบน</option>
+                        <option value="2ตัวล่าง">2 ตัวล่าง</option>
+                        <option value="3กลับ">3 กลับ (สลับเลข)</option>
+                        <option value="19ประตู">19 ประตู</option>
+                    </select>
+                    <label>เลขที่แทง:</label>
+                    <input type="text" id="betNumber" placeholder="เช่น 789 หรือ 45" required>
+                    <label>จำนวนเงินต่อตัว (บาท):</label>
+                    <input type="number" id="betAmount" placeholder="100" required>
+                    
+                    <!-- ส่วนสรุปก่อนส่งโพย -->
+                    <div style="background: #0f172a; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #cbd5e1;">
+                        <p style="margin: 2px 0;">ส่วนลดสมาชิก (10%): <span id="prevDiscount">0</span> ฿</p>
+                        <p style="margin: 2px 0; font-weight: bold; color: #38bdf8;">ยอดจ่ายสุทธิหลังหักส่วนลด: <span id="prevNet">0</span> ฿</p>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">จำนวนเงินต่อตัว (₭)</label>
-                            <input type="number" id="betAmount" placeholder="0" class="w-full px-3 py-2 border rounded-md" oninput="calculateSummary()">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">ส่วนลดสมาชิก (10%)</label>
-                            <input type="text" value="หักส่วนลดอัตโนมัติ" disabled class="w-full px-3 py-2 border bg-gray-50 rounded-md text-gray-400">
-                        </div>
+
+                    <button type="submit">ยืนยันส่งโพย</button>
+                </form>
+            </div>
+
+            <div class="box">
+                <h3>🏆 ผลรางวัลล่าสุด</h3>
+                <div style="display: flex; gap: 20px; text-align: center; margin-top: 20px;">
+                    <div style="flex: 1; background: #0f172a; padding: 15px; border-radius: 8px;">
+                        <p style="color: #94a3b8; margin: 0;">3 ตัวบน</p>
+                        <h2 id="resThree" style="color: #38bdf8; margin: 10px 0 0 0;">---</h2>
                     </div>
-                    <!-- หน้าสรุปยอดลูกค้า -->
-                    <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 text-sm">
-                        <p class="font-semibold text-indigo-900">📄 หน้าสรุปยอดลูกค้า:</p>
-                        <p id="summaryText" class="text-gray-700">- กรอกข้อมูลเพื่อดูสรุปยอด -</p>
+                    <div style="flex: 1; background: #0f172a; padding: 15px; border-radius: 8px;">
+                        <p style="color: #94a3b8; margin: 0;">2 ตัวล่าง</p>
+                        <h2 id="resTwo" style="color: #38bdf8; margin: 10px 0 0 0;">---</h2>
                     </div>
                 </div>
-
-                <!-- โหมดอัปโหลดรูปโพย OCR -->
-                <div id="ocrSection" class="hidden space-y-4">
-                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <p class="text-sm text-gray-600 mb-2">อัปโหลดรูปภาพโพยเขียนมือหรือสลิปหวย</p>
-                        <input type="file" id="ocrFile" accept="image/*" class="mx-auto text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                    </div>
-                    <button type="button" onclick="simulateOCR()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-md transition text-sm">
-                        สแกนข้อความจากรูปภาพอัตโนมัติ
-                    </button>
-                </div>
-
-                <button type="submit" id="submitBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-md transition shadow">
-                    ยืนยันส่งโพยหวย
-                </button>
-            </form>
-        </div>
-
-        <!-- ประวัติโพยของฉัน -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">โพยของฉัน & ยอดได้เสีย</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">เวลา</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">รูปแบบ</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">เลข</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">จ่ายสุทธิ</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">สถานะ</th>
-                        </tr>
-                    </thead>
-                    <tbody id="myOrdersBody" class="divide-y divide-gray-200">
-                        <tr><td colspan="5" class="px-4 py-3 text-center text-sm text-gray-400">ยังไม่มีประวัติการแทง</td></tr>
-                    </tbody>
-                </table>
             </div>
         </div>
-    </main>
 
-    <!-- Modal กระเป๋าเงิน -->
-    <div id="walletModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg p-6 max-w-sm w-full space-y-4">
-            <h3 class="text-lg font-bold text-gray-800">เติมเงินผ่าน QR พร้อมเพย์</h3>
-            <div class="bg-gray-100 p-4 rounded text-center text-sm text-gray-600">
-                [ จำลอง QR Code เติมเงิน ]<br>สแกนเพื่อเติมเครดิตเข้ากระเป๋าออโต้
-            </div>
-            <input type="number" id="topupVal" placeholder="ระบุจำนวนเงิน (₭)" class="w-full px-3 py-2 border rounded">
-            <div class="flex space-x-2">
-                <button onclick="confirmTopup()" class="flex-1 bg-green-600 text-white py-2 rounded">ยืนยันการฝาก</button>
-                <button onclick="closeWalletModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded">ยกเลิก</button>
-            </div>
+        <div class="box" style="margin-top: 20px;">
+            <h3>📋 สรุปโพยและการได้-เสียของคุณ</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ประเภท</th>
+                        <th>เลข</th>
+                        <th>ยอดแทง</th>
+                        <th>หักส่วนลด</th>
+                        <th>สุทธิ</th>
+                        <th>เวลา</th>
+                        <th>สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="orderTableBody"></tbody>
+            </table>
         </div>
     </div>
 
     <script>
         const socket = io();
-        const username = localStorage.getItem('username') || 'member01';
-        let userCredit = 5000;
-        document.getElementById('usernameDisplay').innerText = username;
+
+        document.getElementById('betAmount').addEventListener('input', (e) => {
+            let amt = parseFloat(e.target.value) || 0;
+            let disc = amt * 0.10;
+            document.getElementById('prevDiscount').innerText = disc.toFixed(2);
+            document.getElementById('prevNet').innerText = (amt - disc).toFixed(2);
+        });
 
         socket.on('init_data', (data) => {
-            document.getElementById('resThree').innerText = data.result.threeTop;
-            document.getElementById('resTwo').innerText = data.result.twoBottom;
-            renderMyOrders(data.orders);
+            updateUI(data);
         });
 
-        socket.on('update_result_and_orders', (data) => {
-            document.getElementById('resThree').innerText = data.result.threeTop;
-            document.getElementById('resTwo').innerText = data.result.twoBottom;
-            renderMyOrders(data.orders);
+        socket.on('update_orders', (orders) => {
+            renderOrders(orders);
         });
 
-        function switchTab(mode) {
-            if(mode === 'manual') {
-                document.getElementById('manualSection').classList.remove('hidden');
-                document.getElementById('ocrSection').classList.add('hidden');
-                document.getElementById('btnManual').className = "text-indigo-600 font-bold border-b-2 border-indigo-600 pb-1";
-                document.getElementById('btnOcr').className = "text-gray-500 font-semibold pb-1";
-            } else {
-                document.getElementById('manualSection').classList.add('hidden');
-                document.getElementById('ocrSection').classList.remove('hidden');
-                document.getElementById('btnOcr').className = "text-indigo-600 font-bold border-b-2 border-indigo-600 pb-1";
-                document.getElementById('btnManual').className = "text-gray-500 font-semibold pb-1";
-            }
+        function updateUI(data) {
+            document.getElementById('resThree').innerText = data.result.threeTop;
+            document.getElementById('resTwo').innerText = data.result.twoBottom;
+            renderOrders(data.orders);
         }
 
-        function simulateOCR() {
-            const file = document.getElementById('ocrFile').files[0];
-            if(!file) return alert('กรุณาเลือกรูปภาพโพยก่อนครับ');
-            alert('สแกนรูปภาพสำเร็จ! ระบบดึงเลข [ 45 ] จำนวน [ 500 ₭ ] เข้าฟอร์มแล้ว');
-            switchTab('manual');
-            document.getElementById('betNumber').value = '45';
-            document.getElementById('betAmount').value = '500';
-            calculateSummary();
+        function renderOrders(orders) {
+            const tbody = document.getElementById('orderTableBody');
+            tbody.innerHTML = '';
+            orders.filter(o => o.username === "สมชาย ใจดี").forEach(ord => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${ord.type}</td>
+                    <td><b>${ord.number}</b></td>
+                    <td>${ord.amount} ฿</td>
+                    <td style="color: #f87171;">-${ord.discount || 0} ฿</td>
+                    <td style="color: #38bdf8; font-weight: bold;">${ord.netPay} ฿</td>
+                    <td>${ord.time}</td>
+                    <td style="color: ${ord.status.includes('ถูก') ? '#10b981' : '#f87171'}">${ord.status}</td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
-
-        function calculateSummary() {
-            const type = document.getElementById('betType').value;
-            const number = document.getElementById('betNumber').value.trim();
-            const amount = parseFloat(document.getElementById('betAmount').value) || 0;
-            
-            let multiplier = 1;
-            if (type === '3_back') multiplier = 3;
-            if (type === '6_back') multiplier = 6;
-            if (type === '19_gate') multiplier = 19;
-            if (type === '6x5') multiplier = 30;
-            if (type === '3x5') multiplier = 15;
-
-            const totalBet = amount * multiplier;
-            const discount = totalBet * 0.10;
-            const netPay = totalBet - discount;
-
-            document.getElementById('summaryText').innerHTML = `
-                • รูปแบบ: <b>${type}</b> | เลข: <b>${number || '-'}</b><br>
-                • แทงทั้งหมด ${multiplier} ชุด x ${amount} ₭ = <b>รวม ${totalBet.toLocaleString()} ₭</b><br>
-                • หักส่วนลดเมมเบอร์ (10%): <b>-${discount.toLocaleString()} ₭</b><br>
-                • <b>ยอดจ่ายสุทธิ: <span class="text-indigo-600 font-bold">${netPay.toLocaleString()} ₭</span></b>
-            `;
-        }
-
-        document.getElementById('betNumber').addEventListener('input', calculateSummary);
-        document.getElementById('betType').addEventListener('change', calculateSummary);
 
         document.getElementById('betForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const type = document.getElementById('betType').value;
-            const number = document.getElementById('betNumber').value;
-            const amount = parseFloat(document.getElementById('betAmount').value);
-
-            let multiplier = 1;
-            if (type === '3_back') multiplier = 3;
-            if (type === '6_back') multiplier = 6;
-            if (type === '19_gate') multiplier = 19;
-            if (type === '6x5') multiplier = 30;
-            if (type === '3x5') multiplier = 15;
-
-            const totalBet = amount * multiplier;
-            const netPay = totalBet - (totalBet * 0.10);
-
-            const order = {
-                username: username,
-                type: type,
-                number: number,
-                netPay: netPay,
-                time: new Date().toLocaleTimeString(),
-                status: 'รอผลรางวัล'
+            const orderData = {
+                username: "สมชาย ใจดี",
+                type: document.getElementById('betType').value,
+                number: document.getElementById('betNumber').value,
+                amount: parseFloat(document.getElementById('betAmount').value),
+                discountRate: 0.10
             };
-
-            socket.emit('submit_bet', order);
-            document.getElementById('betForm').reset();
-            document.getElementById('summaryText').innerText = '- กรอกข้อมูลเพื่อดูสรุปยอด -';
-            alert('ส่งโพยสำเร็จ!');
+            socket.emit('submit_bet', orderData);
+            alert('ส่งโพยสำเร็จและบันทึกลงระบบแล้ว!');
         });
-
-        function openWalletModal() { document.getElementById('walletModal').classList.remove('hidden'); }
-        function closeWalletModal() { document.getElementById('walletModal').classList.add('hidden'); }
-        function confirmTopup() {
-            const val = document.getElementById('topupVal').value;
-            if(!val) return;
-            userCredit += parseFloat(val);
-            document.getElementById('creditDisplay').innerText = userCredit.toLocaleString();
-            closeWalletModal();
-            alert(`เติมเงินสำเร็จ ${Number(val).toLocaleString()} ₭`);
-        }
-
-        function renderMyOrders(orders) {
-            const myOrders = orders.filter(o => o.username === username);
-            const tbody = document.getElementById('myOrdersBody');
-            if (myOrders.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-3 text-center text-sm text-gray-400">ยังไม่มีประวัติการแทง</td></tr>`;
-                return;
-            }
-            tbody.innerHTML = myOrders.map(o => `
-                <tr>
-                    <td class="px-4 py-2 text-sm text-gray-500">${o.time}</td>
-                    <td class="px-4 py-2 text-sm text-gray-700">${o.type}</td>
-                    <td class="px-4 py-2 text-sm font-bold text-indigo-600">${o.number}</td>
-                    <td class="px-4 py-2 text-sm text-gray-900">${o.netPay.toLocaleString()} ₭</td>
-                    <td class="px-4 py-2 text-sm font-semibold ${o.status.includes('ถูก') ? 'text-green-600' : (o.status.includes('ไม่') ? 'text-red-500' : 'text-yellow-600')}">${o.status}</td>
-                </tr>
-            `).join('');
-        }
-
-        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
     </script>
 </body>
 </html>

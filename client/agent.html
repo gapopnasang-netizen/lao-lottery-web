@@ -2,18 +2,16 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>ระบบเอเยนต์ - หวยลาวพรีเมียม</title>
+    <title>ระบบเอเยนต์ - จัดการเครดิตและเลขอั้น</title>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <style>
         body { font-family: 'Prompt', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
         .container { max-width: 900px; margin: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
+        .header, .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
-        input { width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 8px; box-sizing: border-box; }
-        button { background: #10b981; color: white; font-weight: 700; border: none; padding: 12px; width: 100%; border-radius: 8px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
-        button:hover { background: #059669; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 8px; box-sizing: border-box; }
+        button { background: #10b981; color: white; font-weight: 700; border: none; padding: 12px; width: 100%; border-radius: 8px; cursor: pointer; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
         th { color: #34d399; }
@@ -21,51 +19,56 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h2>🛠️ Agent Dashboard (ผู้ดูแลระบบ)</h2>
+        <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>🛠️ Agent Dashboard (ระบบจัดการเอเยนต์)</h2>
             <a href="index.html" style="color: #34d399; text-decoration: none;">← กลับหน้าแรก</a>
         </div>
 
         <div class="grid">
             <div class="box">
-                <h3>📢 ออกผลรางวัลหวยลาว</h3>
+                <h3>📢 ออกผลรางวัล & ตรวจโพยอัตโนมัติ</h3>
                 <form id="resultForm">
                     <label>เลข 3 ตัวบน:</label>
                     <input type="text" id="threeTop" placeholder="789" required>
                     <label>เลข 2 ตัวล่าง:</label>
                     <input type="text" id="twoBottom" placeholder="45" required>
-                    <button type="submit">ประกาศผลรางวัล (Real-time)</button>
+                    <button type="submit">ประกาศผลรางวัล</button>
                 </form>
             </div>
 
             <div class="box">
-                <h3>⚙️ ตั้งค่าระบบเอเยนต์</h3>
-                <form id="settingForm">
-                    <label>อัตราส่วนลด (%):</label>
-                    <input type="number" id="discountRate" value="10">
-                    <label>วงเงินรับแทงสูงสุด (บาท):</label>
-                    <input type="number" id="maxLimit" value="50000">
-                    <button type="submit" style="background: #38bdf8; color: #0f172a;">บันทึกการตั้งค่า</button>
+                <h3>💳 เติมเครดิตให้สมาชิก</h3>
+                <form id="creditForm">
+                    <label>ชื่อสมาชิก:</label>
+                    <input type="text" id="targetUser" value="สมชาย ใจดี" required>
+                    <label>จำนวนเครดิตที่ต้องการเติม (+/-):</label>
+                    <input type="number" id="creditAmount" placeholder="500" required>
+                    <button type="submit" style="background: #38bdf8; color: #0f172a;">ยืนยันการเติมเครดิต</button>
                 </form>
             </div>
         </div>
 
+        <div class="box">
+            <h3>🚫 จัดการเลขอั้น (ไม่รับแทง / จ่ายครึ่ง)</h3>
+            <p style="color: #94a3b8; font-size: 13px;">ระบบจะทำการตัดเลขเหล่านี้ออกทันทีเมื่อสมาชิกส่งโพยเข้ามา</p>
+            <input type="text" id="blockedInput" placeholder="ระบุเลขที่ต้องการอั้น เช่น 123" style="width: 70%; display: inline-block;">
+            <button onclick="alert('บันทึกเลขอั้นเรียบร้อย')" style="width: 25%; display: inline-block; background: #ef4444;">เพิ่มเลขอั้น</button>
+        </div>
+
         <div class="box" style="margin-top: 20px;">
-            <h3>📊 โพยทั้งหมดในระบบ (Real-time Monitor)</h3>
+            <h3>📊 รายการโพยทั้งหมดในระบบ</h3>
             <table>
                 <thead>
                     <tr>
                         <th>สมาชิก</th>
                         <th>ประเภท</th>
                         <th>เลข</th>
-                        <th>จำนวนเงิน</th>
+                        <th>สุทธิ</th>
                         <th>เวลา</th>
                         <th>สถานะ</th>
                     </tr>
                 </thead>
-                <tbody id="agentOrderTable">
-                    <!-- โพยทั้งหมด -->
-                </tbody>
+                <tbody id="agentOrderTable"></tbody>
             </table>
         </div>
     </div>
@@ -76,43 +79,45 @@
         socket.on('init_data', (data) => {
             document.getElementById('threeTop').value = data.result.threeTop;
             document.getElementById('twoBottom').value = data.result.twoBottom;
-            if(data.agentSettings) {
-                document.getElementById('discountRate').value = data.agentSettings.discountRate * 100;
-                document.getElementById('maxLimit').value = data.agentSettings.maxLimit;
-            }
-            updateTable(data.orders);
+            updateAgentTable(data.orders);
         });
 
         socket.on('update_result_and_orders', (data) => {
-            updateTable(data.orders);
+            updateAgentTable(data.orders);
         });
 
         document.getElementById('resultForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const resultData = {
+            socket.emit('publish_result', {
                 threeTop: document.getElementById('threeTop').value,
                 twoBottom: document.getElementById('twoBottom').value
-            };
-            socket.emit('publish_result', resultData);
-            alert('ประกาศผลรางวัลสำเร็จ!');
+            });
+            alert('ประกาศผลและคำนวณถูก-ผิดสำเร็จ!');
         });
 
-        document.getElementById('settingForm').addEventListener('submit', (e) => {
+        document.getElementById('creditForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const newSettings = {
-                discountRate: parseFloat(document.getElementById('discountRate').value) / 100,
-                maxLimit: parseFloat(document.getElementById('maxLimit').value)
-            };
-            socket.emit('update_settings', newSettings);
-            alert('บันทึกการตั้งค่าเอเยนต์สำเร็จ!');
+            socket.emit('manage_user', {
+                action: 'add_credit',
+                username: document.getElementById('targetUser').value,
+                amount: parseFloat(document.getElementById('creditAmount').value)
+            });
+            alert('เติมเครดิตสำเร็จ!');
         });
 
-        function updateTable(orders) {
+        function updateAgentTable(orders) {
             const tbody = document.getElementById('agentOrderTable');
             tbody.innerHTML = '';
             orders.forEach(ord => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${ord.username}</td><td>${ord.type}</td><td><b>${ord.number}</b></td><td>${ord.amount || ord.netPay || 0} ฿</td><td>${ord.time || 'ล่าสุด'}</td><td style="color: ${ord.status.includes('ถูก') ? '#10b981' : '#f87171'}">${ord.status}</td>`;
+                tr.innerHTML = `
+                    <td>${ord.username}</td>
+                    <td>${ord.type}</td>
+                    <td><b>${ord.number}</b></td>
+                    <td>${ord.netPay} ฿</td>
+                    <td>${ord.time}</td>
+                    <td style="color: ${ord.status.includes('ถูก') ? '#10b981' : '#f87171'}">${ord.status}</td>
+                `;
                 tbody.appendChild(tr);
             });
         }
