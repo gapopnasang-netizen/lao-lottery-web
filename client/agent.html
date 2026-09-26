@@ -2,78 +2,68 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>ระบบเอเยนต์ (Agent Dashboard Only)</title>
+    <title>เอเยนต์ แดชบอร์ด - Control Panel</title>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { font-family: 'Prompt', sans-serif; background: #121212; color: #fff; padding: 20px; }
-        .container { max-width: 900px; margin: auto; }
-        .card { background: #1e1e1e; border: 1px solid #333; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        body { font-family: 'Prompt', sans-serif; background: #0f172a; color: #fff; padding: 20px; }
+        .container { max-width: 850px; margin: auto; }
+        .card { background: #1e293b; border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 1px solid #334155; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        input, select { width: 100%; padding: 10px; background: #2c2c2c; border: 1px solid #444; color: #fff; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; }
-        button { background: #00e676; color: #000; font-weight: bold; padding: 10px; border: none; border-radius: 6px; cursor: pointer; width: 100%; }
+        input, select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; }
+        button { background: #10b981; color: white; font-weight: bold; padding: 10px; border: none; border-radius: 6px; cursor: pointer; width: 100%; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>🛠️ เมนูเอเยนต์ (จัดการเมมเบอร์ & เครดิต & เลขอั้น)</h2>
-
+        <h2>⚙️ ระบบเอเยนต์จัดการบัญชี & เลขอั้น</h2>
         <div class="grid-2">
-            <!-- เปิดบัญชี & เติมเครดิต -->
             <div class="card">
-                <h3>👤 สร้างบัญชีเมมเบอร์ / เติมเครดิต</h3>
-                <label>ชื่อเมมเบอร์:</label>
-                <input type="text" id="targetUser" placeholder="เช่น user01">
-                <label>รหัสผ่าน:</label>
-                <input type="password" id="targetPass" placeholder="******">
-                <label>จำนวนเครดิตเริ่มต้น:</label>
-                <input type="number" id="creditAmt" placeholder="1000">
-
-                <button onclick="createMember()">เปิดบัญชีเมมเบอร์ใหม่</button>
-                <button onclick="topupCredit()" style="background: #29b6f6; margin-top: 8px;">เติมเครดิตเข้ากระเป๋า</button>
+                <h3>👤 สร้างเมมเบอร์ / เติมเครดิต</h3>
+                <input type="text" id="targetUser" placeholder="ชื่อเมมเบอร์">
+                <input type="password" id="targetPass" placeholder="รหัสผ่าน">
+                <input type="number" id="amt" placeholder="จำนวนเครดิต">
+                <button onclick="createMem()">เปิดบัญชีใหม่</button>
+                <button onclick="topup()" style="background:#0284c7; margin-top:8px;">เติมเครดิต</button>
             </div>
 
-            <!-- ตั้งค่าเลขอั้น -->
             <div class="card">
-                <h3>🚫 ตั้งค่าระบบเลขอั้น (ไม่ขาย / จ่ายไม่เต็ม)</h3>
-                <label>ตัวเลขที่ต้องการตั้งค่า:</label>
-                <input type="text" id="blockNum" placeholder="เช่น 123">
-                <label>สถานะการอั้น:</label>
+                <h3>🚫 ตั้งค่าเลขอั้น (ไม่ขาย / จ่ายครึ่ง)</h3>
+                <input type="text" id="blockNum" placeholder="เลข เช่น 789">
                 <select id="blockType">
-                    <option value="CLOSED">ไม่ขายเลย (ปิดรับแทง)</option>
-                    <option value="HALF">จ่ายไม่เต็มจำนวน (จ่ายครึ่งราคา)</option>
+                    <option value="CLOSED">ไม่ขายเลย (ปิดรับ)</option>
+                    <option value="HALF">จ่ายไม่เต็ม (จ่ายครึ่งราคา)</option>
                 </select>
-
-                <button onclick="setBlockedNumber()" style="background: #ff5252; color: #fff;">บันทึกเลขอั้น</button>
+                <button onclick="setBlock()" style="background:#ef4444;">บันทึกเลขอั้น</button>
             </div>
         </div>
     </div>
 
     <script>
         const socket = io();
-        let agentName = "admin_agent";
+        let agentUser = "admin_agent";
 
-        function createMember() {
+        function createMem() {
             socket.emit('agent_action', {
-                agentUsername: agentName,
+                agentUsername: agentUser,
                 actionType: 'CREATE_MEMBER',
                 targetUser: document.getElementById('targetUser').value,
                 password: document.getElementById('targetPass').value,
-                amount: parseFloat(document.getElementById('creditAmt').value) || 0
+                amount: parseFloat(document.getElementById('amt').value) || 0
             });
         }
 
-        function topupCredit() {
+        function topup() {
             socket.emit('agent_action', {
-                agentUsername: agentName,
+                agentUsername: agentUser,
                 actionType: 'TOPUP_CREDIT',
                 targetUser: document.getElementById('targetUser').value,
-                amount: parseFloat(document.getElementById('creditAmt').value) || 0
+                amount: parseFloat(document.getElementById('amt').value) || 0
             });
         }
 
-        function setBlockedNumber() {
-            socket.emit('set_blocked_number', {
+        function setBlock() {
+            socket.emit('set_blocked', {
                 number: document.getElementById('blockNum').value,
                 type: document.getElementById('blockType').value
             });

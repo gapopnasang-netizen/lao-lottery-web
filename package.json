@@ -1,17 +1,20 @@
 {
-  "name": "lao-lottery-web",
-  "version": "1.0.0",
-  "description": "Lao Lottery Enterprise Web",
+  "name": "lottery-production-engine",
+  "version": "2.0.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "bullmq": "^6.3.9",
-    "express": "^4.19.2",
-    "express-rate-limit": "^8.7.0",
-    "mongoose": "^8.24.4",
-    "redis": "^6.2.1",
-    "socket.io": "^4.7.5"
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "multer": "^1.4.5-lts.1",
+    "socket.io": "^4.7.2",
+    "tesseract.js": "^5.0.3"
   }
 }
