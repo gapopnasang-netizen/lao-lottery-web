@@ -7,7 +7,11 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "bullmq": "^6.3.9",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.7.0",
+    "mongoose": "^8.24.4",
+    "redis": "^6.2.1",
     "socket.io": "^4.7.5"
   }
 }

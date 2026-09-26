@@ -2,172 +2,120 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Dashboard - สถิติและจัดการระบบ</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>ระบบเอเยนต์ - หวยลาวพรีเมียม</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: 'Prompt', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
+        input { width: 100%; padding: 12px; margin: 8px 0; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 8px; box-sizing: border-box; }
+        button { background: #10b981; color: white; font-weight: 700; border: none; padding: 12px; width: 100%; border-radius: 8px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        button:hover { background: #059669; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
+        th { color: #34d399; }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans">
-    <nav class="bg-purple-700 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold">Lao Lottery - แดชบอร์ดเอเยนต์ระดับบริหาร</h1>
-            <div class="flex items-center space-x-4">
-                <span>ผู้ดูแล: <strong id="agentUsername">Agent</strong></span>
-                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition">ออกจากระบบ</button>
-            </div>
-        </div>
-    </nav>
-
-    <main class="max-w-6xl mx-auto p-4 mt-6 space-y-6">
-        <!-- กราฟสถิติยอดได้เสียภาพรวม (Analytics Dashboard) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-500">
-                <p class="text-sm text-gray-500">ยอดแทงรวมทั้งหมด</p>
-                <p id="statTotalBet" class="text-2xl font-bold text-gray-800 mt-1">0 ₭</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-                <p class="text-sm text-gray-500">กำไรสุทธิเอเยนต์</p>
-                <p id="statProfit" class="text-2xl font-bold text-green-600 mt-1">0 ₭</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500">
-                <p class="text-sm text-gray-500">จำนวนโพยทั้งหมด</p>
-                <p id="statTotalOrders" class="text-2xl font-bold text-purple-600 mt-1">0 โพย</p>
-            </div>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🛠️ Agent Dashboard (ผู้ดูแลระบบ)</h2>
+            <a href="index.html" style="color: #34d399; text-decoration: none;">← กลับหน้าแรก</a>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- จัดการเครดิต -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">เติมเครดิตสมาชิก</h2>
-                <div class="space-y-3">
-                    <input type="text" id="targetMember" placeholder="ชื่อยูสเซอร์ (เช่น member01)" class="w-full px-3 py-2 border rounded-md text-sm">
-                    <input type="number" id="addCreditAmount" placeholder="จำนวนเครดิต" class="w-full px-3 py-2 border rounded-md text-sm">
-                    <button onclick="topUpCredit()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-md transition text-sm">ยืนยันเติมเครดิต</button>
-                </div>
+        <div class="grid">
+            <div class="box">
+                <h3>📢 ออกผลรางวัลหวยลาว</h3>
+                <form id="resultForm">
+                    <label>เลข 3 ตัวบน:</label>
+                    <input type="text" id="threeTop" placeholder="789" required>
+                    <label>เลข 2 ตัวล่าง:</label>
+                    <input type="text" id="twoBottom" placeholder="45" required>
+                    <button type="submit">ประกาศผลรางวัล (Real-time)</button>
+                </form>
             </div>
 
-            <!-- ระบบเลขลัมน / เลขอั้น -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">ระบบเลขอั้น (ไม่ขาย / จ่ายครึ่ง)</h2>
-                <div class="space-y-3">
-                    <input type="text" id="blockedNumber" placeholder="เลขที่ต้องการอั้น (เช่น 78)" class="w-full px-3 py-2 border rounded-md text-sm">
-                    <select id="blockType" class="w-full px-3 py-2 border rounded-md text-sm">
-                        <option value="close">ปิดรับเลย (ไม่ขาย)</option>
-                        <option value="half_pay">จ่ายครึ่งเดียว</option>
-                    </select>
-                    <button onclick="saveBlockedNumber()" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded-md transition text-sm">บันทึกเลขอั้น</button>
-                </div>
+            <div class="box">
+                <h3>⚙️ ตั้งค่าระบบเอเยนต์</h3>
+                <form id="settingForm">
+                    <label>อัตราส่วนลด (%):</label>
+                    <input type="number" id="discountRate" value="10">
+                    <label>วงเงินรับแทงสูงสุด (บาท):</label>
+                    <input type="number" id="maxLimit" value="50000">
+                    <button type="submit" style="background: #38bdf8; color: #0f172a;">บันทึกการตั้งค่า</button>
+                </form>
             </div>
         </div>
 
-        <!-- ออกผลรางวัล -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">ออกผลรางวัลหวยลาว</h2>
-            <form id="resultForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">3 ตัวบน</label>
-                    <input type="text" id="threeTopInput" placeholder="เช่น 123" maxlength="3" required class="w-full px-3 py-2 border rounded-md">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">2 ตัวล่าง</label>
-                    <input type="text" id="twoBottomInput" placeholder="เช่น 45" maxlength="2" required class="w-full px-3 py-2 border rounded-md">
-                </div>
-                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md transition">
-                    ประกาศผล & คำนวณยอดได้เสีย
-                </button>
-            </form>
+        <div class="box" style="margin-top: 20px;">
+            <h3>📊 โพยทั้งหมดในระบบ (Real-time Monitor)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>สมาชิก</th>
+                        <th>ประเภท</th>
+                        <th>เลข</th>
+                        <th>จำนวนเงิน</th>
+                        <th>เวลา</th>
+                        <th>สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="agentOrderTable">
+                    <!-- โพยทั้งหมด -->
+                </tbody>
+            </table>
         </div>
-
-        <!-- โพยทั้งหมด -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">โพยรวม & ยอดได้เสียทั้งหมด</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">เวลา</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สมาชิก</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ประเภท</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">เลข</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">จ่ายสุทธิ (₭)</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">สถานะ</th>
-                        </tr>
-                    </thead>
-                    <tbody id="allOrdersTableBody" class="bg-white divide-y divide-gray-200">
-                        <tr><td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">ยังไม่มีโพยหวยเข้ามา...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </main>
+    </div>
 
     <script>
         const socket = io();
-        document.getElementById('agentUsername').innerText = localStorage.getItem('username') || 'agent_boss';
 
         socket.on('init_data', (data) => {
-            updateAnalytics(data.orders);
-            renderOrders(data.orders);
+            document.getElementById('threeTop').value = data.result.threeTop;
+            document.getElementById('twoBottom').value = data.result.twoBottom;
+            if(data.agentSettings) {
+                document.getElementById('discountRate').value = data.agentSettings.discountRate * 100;
+                document.getElementById('maxLimit').value = data.agentSettings.maxLimit;
+            }
+            updateTable(data.orders);
         });
 
         socket.on('update_result_and_orders', (data) => {
-            updateAnalytics(data.orders);
-            renderOrders(data.orders);
-            alert('ประกาศผลและคำนวณยอดได้เสียเรียบร้อย!');
+            updateTable(data.orders);
         });
 
         document.getElementById('resultForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const resultData = {
-                threeTop: document.getElementById('threeTopInput').value,
-                twoBottom: document.getElementById('twoBottomInput').value
+                threeTop: document.getElementById('threeTop').value,
+                twoBottom: document.getElementById('twoBottom').value
             };
             socket.emit('publish_result', resultData);
+            alert('ประกาศผลรางวัลสำเร็จ!');
         });
 
-        function topUpCredit() {
-            const member = document.getElementById('targetMember').value;
-            const amount = document.getElementById('addCreditAmount').value;
-            if(!member || !amount) return alert('กรุณากรอกข้อมูลให้ครบถ้วน');
-            alert(`เติมเครดิต ${amount} ให้ ${member} สำเร็จ!`);
-            document.getElementById('targetMember').value = '';
-            document.getElementById('addCreditAmount').value = '';
-        }
+        document.getElementById('settingForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newSettings = {
+                discountRate: parseFloat(document.getElementById('discountRate').value) / 100,
+                maxLimit: parseFloat(document.getElementById('maxLimit').value)
+            };
+            socket.emit('update_settings', newSettings);
+            alert('บันทึกการตั้งค่าเอเยนต์สำเร็จ!');
+        });
 
-        function saveBlockedNumber() {
-            const num = document.getElementById('blockedNumber').value;
-            if(!num) return alert('กรุณากรอกเลขที่ต้องการอั้น');
-            alert(`บันทึกเลขอั้น [ ${num} ] เรียบร้อย`);
-            document.getElementById('blockedNumber').value = '';
+        function updateTable(orders) {
+            const tbody = document.getElementById('agentOrderTable');
+            tbody.innerHTML = '';
+            orders.forEach(ord => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${ord.username}</td><td>${ord.type}</td><td><b>${ord.number}</b></td><td>${ord.amount || ord.netPay || 0} ฿</td><td>${ord.time || 'ล่าสุด'}</td><td style="color: ${ord.status.includes('ถูก') ? '#10b981' : '#f87171'}">${ord.status}</td>`;
+                tbody.appendChild(tr);
+            });
         }
-
-        function updateAnalytics(orders) {
-            let totalBet = 0;
-            orders.forEach(o => { totalBet += (o.netPay || 0); });
-            document.getElementById('statTotalBet').innerText = totalBet.toLocaleString() + ' ₭';
-            document.getElementById('statProfit').innerText = (totalBet * 0.15).toLocaleString() + ' ₭';
-            document.getElementById('statTotalOrders').innerText = orders.length + ' โพย';
-        }
-
-        function renderOrders(orders) {
-            const tbody = document.getElementById('allOrdersTableBody');
-            if (!orders || orders.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">ยังไม่มีโพยหวยเข้ามา...</td></tr>`;
-                return;
-            }
-            tbody.innerHTML = orders.map(o => `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${o.time}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${o.username}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${o.type}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">${o.number}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${o.netPay.toLocaleString()}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${o.status.includes('ถูก') ? 'text-green-600' : (o.status.includes('ไม่') ? 'text-red-500' : 'text-yellow-600')}">${o.status}</td>
-                </tr>
-            `).join('');
-        }
-
-        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
     </script>
 </body>
 </html>
