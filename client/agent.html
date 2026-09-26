@@ -3,48 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Dashboard - หวยลาว</title>
+    <title>Agent Dashboard - สถิติและจัดการระบบ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen font-sans">
     <nav class="bg-purple-700 text-white shadow-md">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold">Lao Lottery - แดชบอร์ดเอเยนต์ (ผู้ดูแลระบบ)</h1>
+            <h1 class="text-xl font-bold">Lao Lottery - แดชบอร์ดเอเยนต์ระดับบริหาร</h1>
             <div class="flex items-center space-x-4">
-                <span>เอเยนต์: <strong id="agentUsername">Agent</strong></span>
+                <span>ผู้ดูแล: <strong id="agentUsername">Agent</strong></span>
                 <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition">ออกจากระบบ</button>
             </div>
         </div>
     </nav>
 
     <main class="max-w-6xl mx-auto p-4 mt-6 space-y-6">
-        <!-- แผงควบคุมเอเยนต์: สร้างบัญชี/เติมเครดิต & กำหนดเลขลัมน -->
+        <!-- กราฟสถิติยอดได้เสียภาพรวม (Analytics Dashboard) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-indigo-500">
+                <p class="text-sm text-gray-500">ยอดแทงรวมทั้งหมด</p>
+                <p id="statTotalBet" class="text-2xl font-bold text-gray-800 mt-1">0 ₭</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
+                <p class="text-sm text-gray-500">กำไรสุทธิเอเยนต์</p>
+                <p id="statProfit" class="text-2xl font-bold text-green-600 mt-1">0 ₭</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500">
+                <p class="text-sm text-gray-500">จำนวนโพยทั้งหมด</p>
+                <p id="statTotalOrders" class="text-2xl font-bold text-purple-600 mt-1">0 โพย</p>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- จัดการเครดิตสมาชิก -->
+            <!-- จัดการเครดิต -->
             <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">เติมเครดิต / เปิดบัญชีสมาชิก</h2>
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">เติมเครดิตสมาชิก</h2>
                 <div class="space-y-3">
-                    <input type="text" id="targetMember" placeholder="ชื่อยูสเซอร์สมาชิก (เช่น member01)" class="w-full px-3 py-2 border rounded-md text-sm">
-                    <input type="number" id="addCreditAmount" placeholder="จำนวนเครดิตที่จะเติม" class="w-full px-3 py-2 border rounded-md text-sm">
-                    <button onclick="topUpCredit()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-md transition text-sm">
-                        ยืนยันเติมเครดิต
-                    </button>
+                    <input type="text" id="targetMember" placeholder="ชื่อยูสเซอร์ (เช่น member01)" class="w-full px-3 py-2 border rounded-md text-sm">
+                    <input type="number" id="addCreditAmount" placeholder="จำนวนเครดิต" class="w-full px-3 py-2 border rounded-md text-sm">
+                    <button onclick="topUpCredit()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-md transition text-sm">ยืนยันเติมเครดิต</button>
                 </div>
             </div>
 
-            <!-- ระบบเลขั้น (ไม่ขายเลย & จ่ายไม่จำนวน) -->
+            <!-- ระบบเลขลัมน / เลขอั้น -->
             <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">ระบบเลขลัมน / เลขอั้น</h2>
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">ระบบเลขอั้น (ไม่ขาย / จ่ายครึ่ง)</h2>
                 <div class="space-y-3">
-                    <input type="text" id="blockedNumber" placeholder="ระบุเลขที่ต้องการอั้น (เช่น 78)" class="w-full px-3 py-2 border rounded-md text-sm">
+                    <input type="text" id="blockedNumber" placeholder="เลขที่ต้องการอั้น (เช่น 78)" class="w-full px-3 py-2 border rounded-md text-sm">
                     <select id="blockType" class="w-full px-3 py-2 border rounded-md text-sm">
                         <option value="close">ปิดรับเลย (ไม่ขาย)</option>
                         <option value="half_pay">จ่ายครึ่งเดียว</option>
                     </select>
-                    <button onclick="saveBlockedNumber()" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded-md transition text-sm">
-                        บันทึกเลขลัมน
-                    </button>
+                    <button onclick="saveBlockedNumber()" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded-md transition text-sm">บันทึกเลขอั้น</button>
                 </div>
             </div>
         </div>
@@ -67,9 +78,9 @@
             </form>
         </div>
 
-        <!-- โพยและยอดได้เสียทั้งหมด -->
+        <!-- โพยทั้งหมด -->
         <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">โพยรวม & ยอดได้เสียของลูกค้า</h2>
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">โพยรวม & ยอดได้เสียทั้งหมด</h2>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -95,10 +106,12 @@
         document.getElementById('agentUsername').innerText = localStorage.getItem('username') || 'agent_boss';
 
         socket.on('init_data', (data) => {
+            updateAnalytics(data.orders);
             renderOrders(data.orders);
         });
 
         socket.on('update_result_and_orders', (data) => {
+            updateAnalytics(data.orders);
             renderOrders(data.orders);
             alert('ประกาศผลและคำนวณยอดได้เสียเรียบร้อย!');
         });
@@ -126,6 +139,14 @@
             if(!num) return alert('กรุณากรอกเลขที่ต้องการอั้น');
             alert(`บันทึกเลขอั้น [ ${num} ] เรียบร้อย`);
             document.getElementById('blockedNumber').value = '';
+        }
+
+        function updateAnalytics(orders) {
+            let totalBet = 0;
+            orders.forEach(o => { totalBet += (o.netPay || 0); });
+            document.getElementById('statTotalBet').innerText = totalBet.toLocaleString() + ' ₭';
+            document.getElementById('statProfit').innerText = (totalBet * 0.15).toLocaleString() + ' ₭';
+            document.getElementById('statTotalOrders').innerText = orders.length + ' โพย';
         }
 
         function renderOrders(orders) {
